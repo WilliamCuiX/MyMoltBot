@@ -35,7 +35,7 @@ export default function MusicPlayer() {
       title: 'Ocean Waves',
       artist: 'Coastal',
       duration: 234,
-      cover: 'https://images.unsplash.com/photo-1459749411177-287ce327345d?w=400&h=400&fit=crop',
+      cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop',
       url: '',
     },
   ]);
