@@ -20,7 +20,7 @@ export default function MusicPlayer() {
       artist: 'Dream Wave',
       duration: 215,
       cover: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop',
-      url: '',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
     },
     {
       id: 2,
@@ -28,7 +28,7 @@ export default function MusicPlayer() {
       artist: 'Night Owl',
       duration: 187,
       cover: 'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=400&fit=crop',
-      url: '',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
     },
     {
       id: 3,
@@ -36,7 +36,7 @@ export default function MusicPlayer() {
       artist: 'Coastal',
       duration: 234,
       cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop',
-      url: '',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
     },
     {
       id: 4,
@@ -44,7 +44,7 @@ export default function MusicPlayer() {
       artist: 'Neon Pulse',
       duration: 198,
       cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&h=400&fit=crop',
-      url: '',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
     },
   ]);
 
@@ -54,21 +54,54 @@ export default function MusicPlayer() {
   const [volume, setVolume] = useState(70);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // 播放/暂停
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (isPlaying && progress < currentSong.duration) {
-        setProgress((prev) => prev + 1);
-      } else if (progress >= currentSong.duration) {
-        nextSong();
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.play().catch(console.error);
+      } else {
+        audioRef.current.pause();
       }
-    }, 1000);
+    }
+  }, [isPlaying, currentSong]);
 
-    return () => clearInterval(interval);
-  }, [isPlaying, progress, currentSong.duration]);
+  // 更新进度
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleTimeUpdate = () => {
+      setProgress(Math.floor(audio.currentTime));
+    };
+
+    const handleLoadedMetadata = () => {
+      // 更新歌曲的实际时长
+      const newSongs = songs.map(s => {
+        if (s.id === currentSong.id) {
+          return { ...s, duration: Math.floor(audio.duration) };
+        }
+        return s;
+      });
+    };
+
+    const handleEnded = () => {
+      nextSong();
+    };
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [currentSong]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
@@ -93,15 +126,39 @@ export default function MusicPlayer() {
   };
 
   const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProgress(Number(e.target.value));
+    const newProgress = Number(e.target.value);
+    setProgress(newProgress);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newProgress;
+    }
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setVolume(Number(e.target.value));
+    const newVolume = Number(e.target.value);
+    setVolume(newVolume);
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume / 100;
+    }
+  };
+
+  const handleSongClick = (song: Song) => {
+    setCurrentSong(song);
+    setProgress(0);
+    setIsPlaying(true);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <audio
+        ref={audioRef}
+        src={currentSong.url}
+        onLoadedMetadata={() => {
+          if (audioRef.current) {
+            audioRef.current.volume = volume / 100;
+          }
+        }}
+      />
+
       {/* 移动端：垂直居中布局 */}
       <div className="flex items-center justify-center min-h-screen p-4 lg:hidden">
         <div className="w-full max-w-md space-y-4">
@@ -139,7 +196,7 @@ export default function MusicPlayer() {
               <input
                 type="range"
                 min="0"
-                max={currentSong.duration}
+                max={currentSong.duration || 100}
                 value={progress}
                 onChange={handleProgressChange}
                 className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-purple-500"
@@ -224,11 +281,7 @@ export default function MusicPlayer() {
               {songs.map((song) => (
                 <button
                   key={song.id}
-                  onClick={() => {
-                    setCurrentSong(song);
-                    setProgress(0);
-                    setIsPlaying(true);
-                  }}
+                  onClick={() => handleSongClick(song)}
                   className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all duration-300 ${
                     currentSong.id === song.id
                       ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 border border-purple-500/30'
@@ -288,11 +341,7 @@ export default function MusicPlayer() {
             {songs.map((song) => (
               <button
                 key={song.id}
-                onClick={() => {
-                  setCurrentSong(song);
-                  setProgress(0);
-                  setIsPlaying(true);
-                }}
+                onClick={() => handleSongClick(song)}
                 className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${
                   currentSong.id === song.id
                     ? 'bg-gradient-to-r from-purple-500/40 to-pink-500/40 border border-purple-500/50 shadow-lg'
@@ -381,7 +430,7 @@ export default function MusicPlayer() {
               <input
                 type="range"
                 min="0"
-                max={currentSong.duration}
+                max={currentSong.duration || 100}
                 value={progress}
                 onChange={handleProgressChange}
                 className="w-full h-3 bg-white/20 rounded-full appearance-none cursor-pointer accent-purple-500"
